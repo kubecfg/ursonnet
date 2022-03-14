@@ -40,6 +40,13 @@ func (cmd *CLI) Run(cli *Context) error {
 	fmt.Println("After:")
 	fmt.Println(unparse(a))
 
+	vm := jsonnet.MakeVM()
+	res, err := vm.Evaluate(a)
+	if err != nil {
+		return err
+	}
+	fmt.Println(res)
+
 	return nil
 }
 
@@ -68,8 +75,9 @@ func walk(a ast.Node) error {
 			trace := ast.Apply{
 				NodeBase: o.NodeBase,
 				Target: &ast.Index{
-					Target: &ast.Var{Id: ast.Identifier("std")},
-					Id:     (func(a ast.Identifier) *ast.Identifier { return &a })(ast.Identifier("trace")),
+					NodeBase: o.NodeBase,
+					Target:   &ast.Var{Id: ast.Identifier("std")},
+					Index:    &ast.LiteralString{NodeBase: o.NodeBase, Value: "trace"},
 				},
 				Arguments: ast.Arguments{
 					Positional: []ast.CommaSeparatedExpr{
@@ -81,7 +89,9 @@ func walk(a ast.Node) error {
 			if false {
 				log.Printf("TRACE LOOKS LIKE: %s", unparse(&trace))
 			}
-			o.Fields[i].Body = &trace
+			if true {
+				o.Fields[i].Body = &trace
+			}
 		}
 	}
 
