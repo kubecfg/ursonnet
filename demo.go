@@ -13,6 +13,10 @@ import (
 	"github.com/mkmik/ursonnet/internal/unparser"
 )
 
+const (
+	ursonnetTraceTag = "uRsOnNeT"
+)
+
 type Context struct {
 	*CLI
 }
@@ -100,12 +104,10 @@ func walk(a ast.Node) error {
 			}
 
 			var tbase ast.NodeBase = o.NodeBase
-			//			tbase.SetContext(field.Body.Context())
+			tbase.SetContext(field.Body.Context())
 			tbase.SetFreeVariables(field.Body.FreeVariables())
 			if loc := tbase.Loc(); loc != nil {
 				*loc = *field.Body.Loc()
-			} else {
-				panic("LOC IS NIL")
 			}
 			trace := ast.Apply{
 				NodeBase: tbase,
@@ -116,7 +118,7 @@ func walk(a ast.Node) error {
 				},
 				Arguments: ast.Arguments{
 					Positional: []ast.CommaSeparatedExpr{
-						{Expr: &ast.LiteralString{NodeBase: tbase, Value: "foo"}},
+						{Expr: &ast.LiteralString{NodeBase: tbase, Value: ursonnetTraceTag}},
 						{Expr: field.Body},
 					},
 				},
@@ -126,7 +128,7 @@ func walk(a ast.Node) error {
 				log.Printf("TRACE into %v LOOKS LIKE: %s", name, unparse(&trace))
 				dump(&trace, 4)
 			}
-			if true {
+			if _, isObj := field.Body.(*ast.DesugaredObject); !isObj {
 				o.Fields[i].Body = &trace
 			}
 		}
