@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -22,10 +23,13 @@ type Context struct {
 }
 
 type CLI struct {
-	Path string `arg:"" type:"path"`
+	Path      string `arg:"" type:"path"`
+	FieldPath string `arg:"" default:"$" help:"jsonnet field path, example, $.a.b"`
 }
 
 func (cmd *CLI) Run(cli *Context) error {
+	debug := false
+
 	b, err := ioutil.ReadFile(cmd.Path)
 	if err != nil {
 		return err
@@ -35,26 +39,41 @@ func (cmd *CLI) Run(cli *Context) error {
 		return err
 	}
 
-	fmt.Println("Before:")
-	fmt.Println(unparse(a))
-	dump(a, 0)
+	if debug {
+		fmt.Println("Before:")
+		fmt.Println(unparse(a))
+		dump(a, 0)
+	}
 
 	vm := jsonnet.MakeVM()
 
-	log.Printf("Injecting traces")
-	if err := walk(a); err != nil {
+	if err := injectTrace(a); err != nil {
 		return err
 	}
 
-	fmt.Println("After:")
-	fmt.Println(unparse(a))
-	dump(a, 0)
+	if debug {
+		fmt.Println("After:")
+		fmt.Println(unparse(a))
+		dump(a, 0)
+	}
 
-	res, err := vm.Evaluate(a)
+	root, err := jsonnet.SnippetToAST("", fmt.Sprintf("(function(x)(x+{ res:: %s}).res)(null)", cmd.FieldPath))
+	if err != nil {
+		return err
+	}
+	root.(*ast.Apply).Arguments.Positional[0].Expr = a
+	addFreeVariable("std", root)
+
+	var traceOut bytes.Buffer
+	vm.SetTraceOut(&traceOut)
+
+	res, err := vm.Evaluate(root)
 	if err != nil {
 		return err
 	}
 	fmt.Println(res)
+
+	fmt.Println(traceOut.String())
 
 	return nil
 }
@@ -83,10 +102,10 @@ func addFreeVariable(n ast.Identifier, a ast.Node) {
 	a.SetFreeVariables(vars)
 }
 
-// walk walks the AST depth first
-func walk(a ast.Node) error {
+// injectTrace walks the AST depth first
+func injectTrace(a ast.Node) error {
 	for _, c := range toolutils.Children(a) {
-		if err := walk(c); err != nil {
+		if err := injectTrace(c); err != nil {
 			return err
 		}
 	}
@@ -94,14 +113,8 @@ func walk(a ast.Node) error {
 	// percolate "std" free variable up the tree
 	addFreeVariable("std", a)
 
-	if false {
-		log.Printf("walking: %T, free vars: %v", a, a.FreeVariables())
-	}
 	if o, ok := a.(*ast.DesugaredObject); ok {
 		for i, field := range o.Fields {
-			if false {
-				log.Printf("desugared object field: %s", unparse(field.Name))
-			}
 
 			var tbase ast.NodeBase = o.NodeBase
 			tbase.SetContext(field.Body.Context())
@@ -122,11 +135,6 @@ func walk(a ast.Node) error {
 						{Expr: field.Body},
 					},
 				},
-			}
-			name := field.Name.(*ast.LiteralString).Value
-			if true {
-				log.Printf("TRACE into %v LOOKS LIKE: %s", name, unparse(&trace))
-				dump(&trace, 4)
 			}
 			if _, isObj := field.Body.(*ast.DesugaredObject); !isObj {
 				o.Fields[i].Body = &trace
