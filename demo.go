@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -25,11 +26,10 @@ type Context struct {
 type CLI struct {
 	Path      string `arg:"" type:"path"`
 	FieldPath string `arg:"" default:"$" help:"jsonnet field path, example, $.a.b"`
+	Debug     bool   `short:"d"`
 }
 
 func (cmd *CLI) Run(cli *Context) error {
-	debug := false
-
 	b, err := ioutil.ReadFile(cmd.Path)
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func (cmd *CLI) Run(cli *Context) error {
 		return err
 	}
 
-	if debug {
+	if cmd.Debug {
 		fmt.Println("Before:")
 		fmt.Println(unparse(a))
 		dump(a, 0)
@@ -51,7 +51,7 @@ func (cmd *CLI) Run(cli *Context) error {
 		return err
 	}
 
-	if debug {
+	if cmd.Debug {
 		fmt.Println("After:")
 		fmt.Println(unparse(a))
 		dump(a, 0)
@@ -71,9 +71,17 @@ func (cmd *CLI) Run(cli *Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(res)
+	if cmd.Debug {
+		fmt.Println(res)
+	}
 
-	fmt.Println(traceOut.String())
+	scanner := bufio.NewScanner(&traceOut)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasSuffix(line, ursonnetTraceTag) {
+			fmt.Printf("%s\n", strings.TrimPrefix(strings.TrimSuffix(line, ursonnetTraceTag), "TRACE: "))
+		}
+	}
 
 	return nil
 }
