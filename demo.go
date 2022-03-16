@@ -47,6 +47,23 @@ func (cmd *CLI) Run(cli *Context) error {
 
 	vm := jsonnet.MakeVM()
 
+	a = transform(a, func(node ast.Node) ast.Node {
+		if node, ok := node.(*ast.Import); ok {
+			a, _, err := vm.ImportAST(node.Loc().FileName, node.File.Value)
+			if err != nil {
+				panic(err) // TODO: convert to error
+			}
+			return a
+		}
+		return node
+	})
+
+	if cmd.Debug {
+		fmt.Println("After expansion:")
+		fmt.Println(unparse(a))
+		dump(a, 0)
+	}
+
 	if err := injectTrace(a); err != nil {
 		return err
 	}
@@ -63,6 +80,7 @@ func (cmd *CLI) Run(cli *Context) error {
 	}
 	root.(*ast.Apply).Arguments.Positional[0].Expr = a
 	addFreeVariable("std", root)
+	addFreeVariable("$std", root)
 
 	var traceOut bytes.Buffer
 	vm.SetTraceOut(&traceOut)
@@ -110,6 +128,85 @@ func addFreeVariable(n ast.Identifier, a ast.Node) {
 	a.SetFreeVariables(vars)
 }
 
+func transform(node ast.Node, fun func(ast.Node) ast.Node) ast.Node {
+	expand := func(n *ast.Node) {
+		*n = transform(*n, fun)
+	}
+	expandMany := func(ns []ast.CommaSeparatedExpr) {
+		for i := range ns {
+			ns[i].Expr = transform(ns[i].Expr, fun)
+		}
+	}
+	switch node := (node).(type) {
+	case *ast.Apply:
+		expand(&node.Target)
+	case *ast.ApplyBrace:
+		expand(&node.Left)
+		expand(&node.Right)
+	case *ast.Array:
+		expandMany(node.Elements)
+	case *ast.ArrayComp:
+		expand(&node.Body)
+		expand(&node.Spec.Expr)
+		for i := range node.Spec.Conditions {
+			expand(&node.Spec.Conditions[i].Expr)
+		}
+	case *ast.Assert:
+		expand(&node.Cond)
+		expand(&node.Message)
+		expand(&node.Rest)
+	case *ast.Binary:
+		expand(&node.Left)
+		expand(&node.Right)
+	case *ast.Conditional:
+		// TODO: fill in all other stuff
+	case *ast.Dollar:
+
+	case *ast.Error:
+
+	case *ast.Function:
+
+	case *ast.Import:
+
+	case *ast.ImportStr:
+
+	case *ast.Index:
+
+	case *ast.InSuper:
+
+	case *ast.LiteralBoolean:
+
+	case *ast.LiteralNull:
+
+	case *ast.LiteralNumber:
+
+	case *ast.LiteralString:
+
+	case *ast.Local:
+		for i := range node.Binds {
+			expand(&node.Binds[i].Body)
+		}
+		expand(&node.Body)
+	case *ast.Object:
+
+	case *ast.ObjectComp:
+
+	case *ast.Parens:
+
+	case *ast.Self:
+
+	case *ast.Slice:
+
+	case *ast.SuperIndex:
+
+	case *ast.Unary:
+
+	case *ast.Var:
+
+	}
+	return fun(node)
+}
+
 // injectTrace walks the AST depth first
 func injectTrace(a ast.Node) error {
 	for _, c := range toolutils.Children(a) {
@@ -120,6 +217,7 @@ func injectTrace(a ast.Node) error {
 
 	// percolate "std" free variable up the tree
 	addFreeVariable("std", a)
+	addFreeVariable("$std", a) // this is a special variable used when desugaring comprehensions
 
 	if o, ok := a.(*ast.DesugaredObject); ok {
 		for i, field := range o.Fields {
