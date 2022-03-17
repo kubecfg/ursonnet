@@ -51,7 +51,10 @@ func Roots(vm *jsonnet.VM, filename string, expr string, opts ...RootsOpt) ([]st
 		fmt.Println(unparse(root))
 	}
 
-	root = expandImports(vm, root)
+	root, err = expandImports(vm, root)
+	if err != nil {
+		return nil, err
+	}
 
 	if opt.debug {
 		fmt.Println("After import expansion:")
@@ -106,16 +109,16 @@ func Roots(vm *jsonnet.VM, filename string, expr string, opts ...RootsOpt) ([]st
 	return res, nil
 }
 
-func expandImports(vm *jsonnet.VM, a ast.Node) ast.Node {
-	return transformast.Transform(a, func(node ast.Node) ast.Node {
+func expandImports(vm *jsonnet.VM, a ast.Node) (ast.Node, error) {
+	return transformast.Transform(a, func(node ast.Node) (ast.Node, error) {
 		if node, ok := node.(*ast.Import); ok {
 			a, _, err := vm.ImportAST(node.Loc().FileName, node.File.Value)
 			if err != nil {
-				panic(err) // TODO: convert to error
+				return nil, err
 			}
 			return expandImports(vm, a)
 		}
-		return node
+		return node, nil
 	})
 }
 

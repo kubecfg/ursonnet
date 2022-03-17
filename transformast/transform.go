@@ -6,11 +6,26 @@ import (
 	"github.com/google/go-jsonnet/ast"
 )
 
-type NodeTransformer func(ast.Node) ast.Node
+type NodeTransformer func(ast.Node) (ast.Node, error)
 
-func Transform(node ast.Node, fun NodeTransformer) ast.Node {
+func Transform(node ast.Node, fun NodeTransformer) (res ast.Node, err error) {
+	type transformError struct{ error }
+
+	// only captures panics issued by `tr` and converts them into normal errors
+	defer func() {
+		if r := recover(); r != nil {
+			if te, ok := r.(transformError); ok {
+				err = te.error
+			}
+		}
+	}()
+
 	tr := func(n *ast.Node) {
-		*n = Transform(*n, fun)
+		var err error
+		*n, err = Transform(*n, fun)
+		if err != nil {
+			panic(transformError{err})
+		}
 	}
 
 	switch node := (node).(type) {
