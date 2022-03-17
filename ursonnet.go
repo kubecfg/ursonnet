@@ -51,7 +51,7 @@ func Roots(vm *jsonnet.VM, filename string, expr string, opts ...RootsOpt) ([]st
 		fmt.Println(unparse(root))
 	}
 
-	root, err = expandImports(vm, root)
+	root, err = expandImports(vm, root, map[string]bool{})
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func Roots(vm *jsonnet.VM, filename string, expr string, opts ...RootsOpt) ([]st
 		fmt.Println(unparse(root))
 	}
 
-	if err := injectTrace(root); err != nil {
+	if err := injectTrace(root, map[ast.Node]bool{}); err != nil {
 		return nil, err
 	}
 
@@ -109,23 +109,32 @@ func Roots(vm *jsonnet.VM, filename string, expr string, opts ...RootsOpt) ([]st
 	return res, nil
 }
 
-func expandImports(vm *jsonnet.VM, a ast.Node) (ast.Node, error) {
+func expandImports(vm *jsonnet.VM, a ast.Node, seen map[string]bool) (ast.Node, error) {
 	return transformast.Transform(a, func(node ast.Node) (ast.Node, error) {
 		if node, ok := node.(*ast.Import); ok {
-			a, _, err := vm.ImportAST(node.Loc().FileName, node.File.Value)
+			a, foundAt, err := vm.ImportAST(node.Loc().FileName, node.File.Value)
 			if err != nil {
 				return nil, err
 			}
-			return expandImports(vm, a)
+			if seen[foundAt] {
+				return a, nil
+			}
+			seen[foundAt] = true
+			return expandImports(vm, a, seen)
 		}
 		return node, nil
 	})
 }
 
 // injectTrace walks the AST depth first
-func injectTrace(a ast.Node) error {
+func injectTrace(a ast.Node, seen map[ast.Node]bool) error {
+	if seen[a] {
+		return nil
+	}
+	seen[a] = true
+
 	for _, c := range toolutils.Children(a) {
-		if err := injectTrace(c); err != nil {
+		if err := injectTrace(c, seen); err != nil {
 			return err
 		}
 	}
