@@ -1,6 +1,10 @@
 package transformast
 
-import "github.com/google/go-jsonnet/ast"
+import (
+	"fmt"
+
+	"github.com/google/go-jsonnet/ast"
+)
 
 type NodeTransformer func(ast.Node) ast.Node
 
@@ -13,6 +17,7 @@ func Transform(node ast.Node, fun NodeTransformer) ast.Node {
 			ns[i].Expr = Transform(ns[i].Expr, fun)
 		}
 	}
+
 	switch node := (node).(type) {
 	case *ast.Apply:
 		expand(&node.Target)
@@ -34,51 +39,67 @@ func Transform(node ast.Node, fun NodeTransformer) ast.Node {
 	case *ast.Binary:
 		expand(&node.Left)
 		expand(&node.Right)
-	case *ast.Conditional:
-		// TODO: fill in all other stuff
-	case *ast.Dollar:
-
-	case *ast.Error:
-
-	case *ast.Function:
-
-	case *ast.Import:
-
-	case *ast.ImportStr:
-
 	case *ast.Index:
-
-	case *ast.InSuper:
-
-	case *ast.LiteralBoolean:
-
-	case *ast.LiteralNull:
-
-	case *ast.LiteralNumber:
-
-	case *ast.LiteralString:
-
+		expand(&node.Target)
+		expand(&node.Index)
 	case *ast.Local:
 		for i := range node.Binds {
 			expand(&node.Binds[i].Body)
 		}
 		expand(&node.Body)
-	case *ast.Object:
-
-	case *ast.ObjectComp:
-
-	case *ast.Parens:
-
-	case *ast.Self:
-
-	case *ast.Slice:
-
-	case *ast.SuperIndex:
-
+	case *ast.DesugaredObject:
+		for i := range node.Fields {
+			expand(&node.Fields[i].Name)
+			expand(&node.Fields[i].Body)
+		}
 	case *ast.Unary:
-
-	case *ast.Var:
-
+		expand(&node.Expr)
+	case *ast.InSuper:
+		expand(&node.Index)
+	case *ast.Parens:
+		expand(&node.Inner)
+	case *ast.SuperIndex:
+		expand(&node.Index)
+	case *ast.Conditional:
+		expand(&node.Cond)
+		expand(&node.BranchTrue)
+		expand(&node.BranchFalse)
+	case *ast.Error:
+		expand(&node.Expr)
+	case *ast.Function:
+		expand(&node.Body)
+		for i := range node.Parameters {
+			expand(&node.Parameters[i].DefaultArg)
+		}
+	case *ast.Slice:
+		expand(&node.Target)
+		expand(&node.BeginIndex)
+		expand(&node.EndIndex)
+		expand(&node.Step)
+	case *ast.Object:
+		for i := range node.Fields {
+			expand(&node.Fields[i].Expr1)
+			expand(&node.Fields[i].Expr2)
+			expand(&node.Fields[i].Expr3)
+		}
+	case *ast.ObjectComp:
+		for i := range node.Fields {
+			expand(&node.Fields[i].Expr1)
+			expand(&node.Fields[i].Expr2)
+			expand(&node.Fields[i].Expr3)
+		}
+		expand(&node.Spec.Expr)
+		for i := range node.Spec.Conditions {
+			expand(&node.Spec.Conditions[i].Expr)
+		}
+	case *ast.Import, *ast.ImportStr, *ast.Var:
+		// only literal children
+	case *ast.LiteralBoolean, *ast.LiteralNull, *ast.LiteralNumber, *ast.LiteralString:
+		// only literal children
+	case *ast.Self, *ast.Dollar:
+		// no children
+	default:
+		panic(fmt.Sprintf("unhandled type %T", node))
 	}
 	return fun(node)
 }
