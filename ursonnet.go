@@ -52,8 +52,6 @@ func Roots(vm *jsonnet.VM, filename string, expr string, opts ...RootsOpt) ([]st
 	}
 
 	root = expandImports(vm, root)
-	root = expandImports(vm, root)
-	// todo fix recursive imports
 
 	if opt.debug {
 		fmt.Println("After import expansion:")
@@ -115,7 +113,7 @@ func expandImports(vm *jsonnet.VM, a ast.Node) ast.Node {
 			if err != nil {
 				panic(err) // TODO: convert to error
 			}
-			return a
+			return expandImports(vm, a)
 		}
 		return node
 	})
