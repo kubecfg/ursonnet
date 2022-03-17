@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package unparser is used only for debugging purposes
 package unparser
 
 import (

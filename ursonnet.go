@@ -18,10 +18,12 @@ const (
 	ursonnetTraceTag = "uRsOnNeT"
 )
 
+// RootsOpt is an option for Roots
 type RootsOpt func(opts *rootsOptions)
 
 type rootsOptions struct{ debug bool }
 
+// Debug sets whether Roots emits verbose debug logs.
 func Debug(v bool) RootsOpt {
 	return func(opts *rootsOptions) {
 		opts.debug = v

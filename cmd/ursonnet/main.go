@@ -8,10 +8,6 @@ import (
 	"github.com/mkmik/ursonnet"
 )
 
-const (
-	ursonnetTraceTag = "uRsOnNeT"
-)
-
 type Context struct {
 	*CLI
 }
