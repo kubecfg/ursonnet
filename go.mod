@@ -1,4 +1,4 @@
-module github.com/mkmik/ursonnet
+module github.com/kubecfg/ursonnet
 
 go 1.18
 

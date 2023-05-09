@@ -10,8 +10,8 @@ import (
 	"github.com/google/go-jsonnet"
 	"github.com/google/go-jsonnet/ast"
 	"github.com/google/go-jsonnet/toolutils"
-	"github.com/mkmik/ursonnet/internal/unparser"
-	"github.com/mkmik/ursonnet/transformast"
+	"github.com/kubecfg/ursonnet/internal/unparser"
+	"github.com/kubecfg/ursonnet/transformast"
 )
 
 const (

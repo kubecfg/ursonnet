@@ -1,7 +1,7 @@
 # Build
 
 ```bash
-go install github.com/mkmik/ursonnet@latest
+go install github.com/kubecfg/ursonnet@latest
 ```
 
 

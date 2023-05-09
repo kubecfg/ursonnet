@@ -5,7 +5,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/google/go-jsonnet"
-	"github.com/mkmik/ursonnet"
+	"github.com/kubecfg/ursonnet"
 )
 
 type Context struct {
