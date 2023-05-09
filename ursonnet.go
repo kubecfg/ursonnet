@@ -94,6 +94,8 @@ func Roots(vm *jsonnet.VM, filename string, expr string, opts ...RootsOpt) ([]st
 
 	ignoreLine := fmt.Sprintf("TRACE: %s:1 %s", ursonnetTraceTag, ursonnetTraceTag)
 
+	seen := map[string]bool{}
+
 	var res []string
 	scanner := bufio.NewScanner(&traceOut)
 	for scanner.Scan() {
@@ -102,9 +104,14 @@ func Roots(vm *jsonnet.VM, filename string, expr string, opts ...RootsOpt) ([]st
 			if line == ignoreLine {
 				continue
 			}
-			res = append(res, strings.TrimPrefix(strings.TrimSuffix(line, ursonnetTraceTag), "TRACE: "))
+			clean := strings.TrimPrefix(strings.TrimSuffix(line, ursonnetTraceTag), "TRACE: ")
+			if !seen[clean] {
+				res = append(res, clean)
+				seen[clean] = true
+			}
 		}
 	}
+	reverse(res)
 
 	return res, nil
 }
@@ -193,6 +200,12 @@ func unparse(a ast.Node) string {
 	u := unparser.Unparser{}
 	u.Unparse(a, false)
 	return u.String()
+}
+
+func reverse[T any](s []T) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
 }
 
 func dump(a ast.Node, indent int) {
