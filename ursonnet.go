@@ -150,7 +150,10 @@ func injectTrace(a ast.Node, seen map[ast.Node]bool) error {
 			tbase.SetContext(field.Body.Context())
 			tbase.SetFreeVariables(field.Body.FreeVariables())
 			if loc := tbase.Loc(); loc != nil {
-				*loc = *field.Body.Loc()
+				// I was tempted to use field.Body.Loc() but it turns out that's not
+				// initialized in some desugarings like `f(arg): body` -> `f: function(arg) body`.
+				// OTOH, the field location itself is always available
+				*loc = field.LocRange
 			}
 			trace := ast.Apply{
 				NodeBase: tbase,
